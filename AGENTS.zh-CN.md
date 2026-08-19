@@ -127,9 +127,9 @@ else process.cwd()                       // 最终回退（随后是作为最后
 
 - **后台是默认**（`run_in_background !== false` → `subagents.startContinuable`）。调用在收件箱接受时返回一个持久子智能体 id。运行时自行投递结算通知（结果 + 最终助手消息）。
 - **`run_in_background` 是 DSH 形式对 Codex CLI schema 的补充**（默认 `true`），以便模型可以选择一次性等待。其余参数名（`task_name`、`message`、`agent_type`、`model`、`reasoning_effort`、`fork_turns`）保持与 Codex 工具集一致。`reasoning_effort` 与 `fork_turns` 仅为 schema 对等而接受，不会映射到子请求上；子会话始终是全新对话。
-- **`agent_type: 'explore'`** 选择只读的 Codex explore 配方；任何其他值（包括省略）使用通用 Codex agent。
-- **每次请求都显式设置 `agentOptions` / `persona` / `toolFilter` / `maxDepth: 3`**，因为可续跑路由从不调用 `provider.start()`（mesh AGENTS.md §3.2）。`agentOptions` 始终为 `{ provider: 'codex-kernel', model: args.model || 'deepseek-v4-flash:0731' }`。persona 与 `toolFilter` 使用 Codex 工具集名称（`exec_command`、`apply_patch`、`view_file`，……），而不是 mesh 配方的通用 DSH 名称。
-- **提供者优先级**是已列出时的 `codex-agent` / `codex-explore`，然后是 `codex-agent`，再然后是 `spawn`。
+- **`agent_type` 映射到上游 Codex 角色**（`codex-rs/core/src/agent/role.rs`）：`explorer` → `codex-explore`，`worker` → `codex-worker`，省略/其他 → `codex-agent`（`default` 角色）。上游 `explorer.toml` 为空、`worker` 无配置文件，因此**任何角色都不改变子智能体的提示词或工具**——每个角色都运行完整 Codex 基础提示词 + 全量工具集。角色描述只用于指导父智能体选择，写在 `agent_type` 参数描述里。
+- **每次请求都显式设置 `agentOptions` / `persona` / `toolFilter` / `maxDepth: 3`**，因为可续跑路由从不调用 `provider.start()`（mesh AGENTS.md §3.2）。`agentOptions` 为 `{ provider: recipe.provider, model: args.model || recipe.model }`；`persona` 与 `toolFilter` 来自 `lib/subagents.js`（与 mesh 共享的唯一真源）。
+- **提供者优先级**是已列出时的配方名（`codex-agent` / `codex-explore` / `codex-worker`），然后是 `codex-agent`，再然后是 `spawn`。
 - **前台**（`run_in_background: false`）等待 `subagents.start`，并在非 `completed` 停止时追加 `"Partial output before the run ended:"` 加上子智能体文本——原生措辞（`stopReasonError` + `withPartialText`）。
 - 该工具声明 **`isConcurrencySafe: () => true`**，并注册一个 **`systemPrompt` 段落**（`tool:spawn_agent`，顺序 `116.5`），在工具可见时教授后台优先约定。
 

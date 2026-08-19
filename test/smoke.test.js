@@ -296,8 +296,8 @@ async function main() {
   ok(started && started.request, 'startContinuable receives a request')
   deep(
     started.request.agentOptions,
-    { provider: 'codex-kernel', model: 'deepseek-v4-flash:0731' },
-    'explicit agentOptions',
+    { provider: 'codex-kernel', model: '' },
+    'explicit agentOptions (no fabricated default model)',
   )
   ok(typeof started.request.persona === 'string' && started.request.persona.length > 0, 'request.persona set')
   ok(started.request.toolFilter && Array.isArray(started.request.toolFilter.allow), 'request.toolFilter set')
