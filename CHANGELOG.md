@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.0.4
+
+- **Subagent recipes match upstream Codex roles.** `codex-agent` (default),
+  `codex-explore`, `codex-worker`; upstream `explorer.toml` is empty and `worker`
+  has no config file, so no role restricts tools — every role runs the full Codex
+  base prompt with the full toolset.
+- **`spawn_agent` reuses the L2 recipes** and maps `explorer`/`worker`/default.
+- **No fabricated default model.** Recipes carry an empty model; the mesh fills
+  it from `~/.codex/config.toml`.
+
 ## 1.0.3
 
 - **Upstream system prompt.** `lib/system-prompt.js` carries the full Codex prompt
