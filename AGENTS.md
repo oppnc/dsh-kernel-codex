@@ -4,7 +4,7 @@ Maintainer-facing documentation for the `dsh-kernel-codex` package. This file ex
 
 ## Overview
 
-`dsh-kernel-codex` re-registers the **OpenAI Codex CLI tool surface** as native DSH tools. The goal is not to wrap the Codex binary, but to *re-implement* the Codex tool surface directly on DSH services — `fs`, `web`, `subprocess`, `jobs`, `subagents`, `planMode`, `sandboxPolicy`, `attachments`, `userQuestions` — so that the same names, schemas, and semantics are available on any model route, including the custom `codex-kernel` route.
+`dsh-kernel-codex` re-registers the **OpenAI Codex CLI tool surface** as native DSH tools. The goal is not to wrap the Codex binary, but to *re-implement* the Codex tool surface directly on DSH services — `fs`, `web`, `subprocess`, `jobs`, `subagents`, `sandboxPolicy`, `attachments`, `userQuestions` — so that the same names, schemas, and semantics are available on any model route, including the custom `codex-kernel` route.
 
 The package is a single-file Cordis plugin:
 
@@ -14,7 +14,7 @@ export const inject = ['fs', 'tools', 'subprocess', 'web', 'jobs']
 export async function apply(ctx) { /* ... */ }
 ```
 
-Only the hard dependencies are declared in `inject` — `fs`, `tools`, `subprocess`, `web`, `jobs` (mesh AGENTS.md §2). Everything else is read through `ctx.get(...)` with `undefined` guards, so the package mounts (possibly with reduced functionality) in presets that lack a given service. Never read an undeclared service as a bare `ctx.<name>` property. The services read this way are: `fs`, `tools`, `web`, `planMode`, `subagents`, `sandboxPolicy`, `subprocess`, `jobs`, `attachments`, `userQuestions`, `systemPrompt`.
+Only the hard dependencies are declared in `inject` — `fs`, `tools`, `subprocess`, `web`, `jobs` (mesh AGENTS.md §2). Everything else is read through `ctx.get(...)` with `undefined` guards, so the package mounts (possibly with reduced functionality) in presets that lack a given service. Never read an undeclared service as a bare `ctx.<name>` property. The services read this way are: `fs`, `tools`, `web`, `subagents`, `sandboxPolicy`, `subprocess`, `jobs`, `attachments`, `userQuestions`, `systemPrompt`.
 
 `apply` is written so that it *returns early* only if the two truly essential services are missing:
 
@@ -23,6 +23,21 @@ if (!tools || !fs) return
 ```
 
 Every tool registers through a tolerant `register()` helper and every registration is fire-and-forget inside the plugin's `apply` fiber, so unregistration/lifecycle is owned by Cordis, not by the package.
+
+## System prompt (persona)
+
+`lib/system-prompt.js` carries the upstream **Codex CLI** system prompt, rewritten in DSH
+form: tool names and runtime placeholders are adapted to the DSH tool surface, while the
+behavior rules are kept verbatim. (gpt-5.6 models reuse this prompt — the repo has no gpt-5.6-specific file.) Upstream source: https://github.com/openai/codex/blob/main/codex-rs/core/gpt_5_2_prompt.md
+
+`apply()` registers it as the `deployment:persona` section (order `0`) with
+`complete: true`, and calls `systemPrompt.suppressRuntimeContext()`. Together these make
+the vendor prompt the **sole** system-prompt section and drop the runtime-context snapshot,
+so a session on this kernel sees ONLY the vendor's own system prompt.
+
+Consequence for presets: a preset that mounts this plugin MUST NOT also mount a
+`@deepseek-ai/dsh-persona` row — both register `deployment:persona` in the same scope and
+the second registration throws. The kernel presets ship without that row.
 
 ## Schema provenance
 
@@ -44,7 +59,7 @@ The installed Codex version has evolved past the older tool names (`shell`, `vie
 
 Tool descriptions are faithful to the extracted text. Where an older name still makes sense as an alias (the `view`/`write`/`edit` → `view_file`/`write_file`/`edit_file` mapping), the description calls the legacy name out explicitly so models that prefer the older vocabulary still find the right tool.
 
-A note on counts: the source registers **30 tools** (30 `register()` calls at the top of `apply`), plus two conditional registrations — `enter_plan_mode` and `exit_plan_mode` — that only occur when the `planMode` service is present. Three of the 30 (`send_message`, `interrupt_agent`, `list_agents`) share names with DSH's native control tools and are skipped only when those rows already won (see Name-collision backstop). A default mount therefore exposes 27 or 30 static tools, plus the two plan-mode tools when `planMode` exists.
+A note on counts: the source registers **30 tools** (30 `register()` calls at the top of `apply`). Three of the 30 (`send_message`, `interrupt_agent`, `list_agents`) share names with DSH's native control tools and are skipped only when those rows already won (see Name-collision backstop). A default mount therefore exposes 27 or 30 static tools. There is no `enter_plan_mode`/`exit_plan_mode` pair — Codex models plan mode as `update_plan` (see below).
 
 ## Name-collision backstop
 
@@ -117,9 +132,9 @@ else if (sandboxPolicy.workspaceRoot) ...// shared root
 else process.cwd()                       // final fallback (then 'C:\\' as a last resort)
 ```
 
-### Plan mode — `enter_plan_mode` / `exit_plan_mode`
+### Plan mode — `update_plan`
 
-These register **only** when `planMode` is present, which is why the row *must* sit inside the preset's planning group. They are Codex-compatible aliases over the DSH `planMode` service: `enter_plan_mode` → `planMode.set(exec.agent, true)`, `exit_plan_mode` → `planMode.set(exec.agent, false)`. Notably, the installed Codex 0.146.0 does **not** model plan mode as an enter/exit pair — it uses `update_plan` for planning — so this pair is a compatibility convenience for models that learned the older enter/exit vocabulary.
+Codex models plan mode as `update_plan` (a TODO/checklist rendered to the user), NOT as a dedicated enter/exit pair. The plugin therefore does **not** register `enter_plan_mode`/`exit_plan_mode` and does **not** read the DSH `planMode` service. `update_plan` writes `todo/write` session events so the plan renders through DSH's `todos` projection — that is the display interface (the codex preset keeps `tool-todo` enabled for the projection).
 
 ### Multi-agent family — `spawn_agent` matches the stock `subagent` tool
 
@@ -198,7 +213,7 @@ These lived in `dsh-kernel-mesh` and are **not** open work for this package. Cur
 ## Testing notes
 
 - **Syntax/validation:** `node --check lib/index.js` — the plugin is plain ESM JavaScript with no build step, so this is the first and cheapest check.
-- **Registration smoke test:** mount the package in a preset with colliding DSH rows enabled, then disabled, and confirm the tolerant `register()` logic produce the expected tool set (no "already registered" exceptions; 27 static tools when the three native control names already won, or 30 when they did not — plus the two plan-mode tools when `planMode` is present).
+- **Registration smoke test:** mount the package in a preset with colliding DSH rows enabled, then disabled, and confirm the tolerant `register()` logic produce the expected tool set (no "already registered" exceptions; 27 static tools when the three native control names already won, or 30 when they did not).
 - **`spawn_agent` smoke test:** `/tmp/kernel-surfaces-smoke-codex.js` (same mock-ctx pattern as the kimi/grok suite). It asserts the plugin loads; background default → `startContinuable` with explicit `agentOptions`/`persona`/`toolFilter`/`maxDepth: 3` and a durable-id return; `followup_task` / `send_message` / `resume_agent` → `subagents.followup`; foreground partial-output wording (`Partial output before the run ended:`); `isConcurrencySafe`; and the `tool:spawn_agent` systemPrompt section.
 - **Functional checks:** exercise the tools through the `codex-kernel` preset — `exec_command` (foreground timeout and background + `task_stop`), `apply_patch` (add/update/delete/move hunks and matching-failure paths), `glob`/`grep` (skip-dir and 512 KiB cap behavior), `view_file`/`write_file`/`edit_file` (sandbox-policy writes), `request_user_input`, `spawn_agent` (background default, follow-up, and `run_in_background: false`), and `view_image` on a real PNG/JPEG.
 - **Edge cases to re-verify after any edit:** the 3-second/300-second timeout clamp in `exec_command`, the anchor-location fallback in `applyUpdateHunk` (no `@@` context), and `cwdOf`'s three-level fallback.

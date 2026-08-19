@@ -10,6 +10,20 @@ The payoff is simple: use the Codex CLI tool surface natively inside DSH — **n
 
 Distilled from `@openai/codex` **0.147.0** (stable). The 0.148 series is still alpha; handler names are unchanged.
 
+## System prompt & subagents
+
+`lib/system-prompt.js` carries the full upstream **Codex** prompt
+(`gpt_5_2_prompt.md`; gpt-5.6 models reuse it). `apply()` registers it as the
+agent's sole system-prompt section (`complete: true` + `suppressRuntimeContext()`).
+
+Codex's own plan mode is `update_plan` (it writes `todo/write` events so the plan
+renders through DSH's `todos` projection); there is no DSH `enter_plan_mode` /
+`exit_plan_mode` pair.
+
+`lib/subagents.js` ships `codex-explore` and `codex-worker` (Codex's built-in
+`explorer` and `worker` roles). The mesh loads them and mounts this plugin on each
+child with a `config.tools` whitelist.
+
 ## Install
 
 1. Copy the package into your harness profile:

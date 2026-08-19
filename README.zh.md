@@ -10,6 +10,19 @@ DSH 有个很朴素的想法：**一切都是插件**。模型是插件，工具
 
 对齐 `@openai/codex` **0.147.0**（稳定版）。0.148 系列仍是 alpha，handler 名称未变。
 
+## 系统提示词与子代理
+
+`lib/system-prompt.js` 携带完整的上游 **Codex** prompt（`gpt_5_2_prompt.md`；
+gpt-5.6 系列模型复用它）。`apply()` 把它注册为 agent 唯一的 system-prompt 段
+（`complete: true` + `suppressRuntimeContext()`）。
+
+Codex 自己的计划模式是 `update_plan`（它会写 `todo/write` 事件，让计划通过 DSH
+的 `todos` 投影渲染）；没有 DSH 的 `enter_plan_mode` / `exit_plan_mode` 对。
+
+`lib/subagents.js` 提供 `codex-explore` 和 `codex-worker`（Codex 内置的
+`explorer` 与 `worker` 角色）。mesh 会加载它们，并在每个子代理上以
+`config.tools` 白名单挂载本插件。
+
 ## 安装
 
 1. 把本包复制进你的 harness profile：

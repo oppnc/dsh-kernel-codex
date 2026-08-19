@@ -36,6 +36,7 @@ function createHarness() {
   const files = new Map()
   const registered = new Map()
   const sections = []
+  let suppressed = false
   const calls = {
     startContinuable: [],
     start: [],
@@ -217,7 +218,6 @@ function createHarness() {
       async fetch() { return { body: { content: '' } } },
     },
     jobs,
-    planMode: { set() { return 'ok' } },
     subagents,
     sandboxPolicy: {
       workspaceRoot,
@@ -225,13 +225,14 @@ function createHarness() {
     },
     attachments: { async saveImage() { return { id: 'att-1' } } },
     userQuestions: { async ask() { return { answers: [] } } },
-    systemPrompt: { section(s) { sections.push(s) } },
+    systemPrompt: { section(s) { sections.push(s) }, suppressRuntimeContext() { suppressed = true } },
   }
 
   return {
     ctx: { get(name) { return services[name] } },
     registered,
     sections,
+    get suppressed() { return suppressed },
     calls,
     files,
     workspaceRoot,
@@ -253,7 +254,7 @@ const EXPECTED_TOOLS = [
   'view_image', 'sleep', 'update_plan', 'request_user_input', 'get_context_remaining',
   'new_context', 'spawn_agent', 'assign_agent_task', 'send_message', 'followup_task',
   'wait_agent', 'list_agents', 'resume_agent', 'interrupt_agent', 'close_agent',
-  'list_tasks', 'task_output', 'task_stop', 'enter_plan_mode', 'exit_plan_mode',
+  'list_tasks', 'task_output', 'task_stop',
   'view_file', 'write_file', 'edit_file', 'glob', 'grep',
 ]
 
@@ -358,10 +359,15 @@ async function main() {
   match(fg, /Partial output before the run ended:/, 'foreground max-tokens includes partial-output wording')
   match(fg, /codex partial answer/, 'foreground includes partial child text')
 
-  eq(h.sections.length, 1, 'systemPrompt.section registered once')
-  eq(h.sections[0].name, 'tool:spawn_agent', 'systemPrompt section name')
-  eq(h.sections[0].order, 116.5, 'systemPrompt section order')
-  ok(typeof h.sections[0].text === 'function', 'systemPrompt section text is a function')
+  eq(h.sections.length, 2, 'systemPrompt registers persona + tool section')
+  eq(h.sections[0].name, 'deployment:persona', 'persona section name')
+  eq(h.sections[0].order, 0, 'persona section order')
+  eq(h.sections[0].complete, true, 'persona section is complete')
+  ok(typeof h.sections[0].text === 'string', 'persona text is a string')
+  eq(h.sections[1].name, 'tool:spawn_agent', 'tool section name')
+  eq(h.sections[1].order, 116.5, 'tool section order')
+  ok(typeof h.sections[1].text === 'function', 'tool section text is a function')
+  ok(h.suppressed, 'runtime context suppressed')
 
   const apply_patch = h.registered.get('apply_patch')
   const addOut = await apply_patch.execute({

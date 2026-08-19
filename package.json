@@ -1,6 +1,6 @@
 {
   "name": "dsh-kernel-codex",
-  "version": "0.1.2",
+  "version": "1.0.3",
   "description": "Codex CLI tool surface written in DSH form, distilled from @openai/codex v0.147.0 (tool handlers unchanged from v0.146.0).",
   "type": "module",
   "main": "lib/index.js",
@@ -10,8 +10,11 @@
   },
   "files": [
     "lib/index.js",
+    "lib/system-prompt.js",
+    "lib/subagents.js",
     "LICENSE",
     "README.md",
+    "CHANGELOG.md",
     "README.zh.md",
     "README.i18n.yaml",
     "AGENTS.md",
