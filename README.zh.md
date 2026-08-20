@@ -19,8 +19,8 @@ gpt-5.6 系列模型复用它）。`apply()` 把它注册为 agent 唯一的 sys
 Codex 自己的计划模式是 `update_plan`（它会写 `todo/write` 事件，让计划通过 DSH
 的 `todos` 投影渲染）；没有 DSH 的 `enter_plan_mode` / `exit_plan_mode` 对。
 
-`lib/subagents.js` 提供 `codex-explore` 和 `codex-worker`（Codex 内置的
-`explorer` 与 `worker` 角色）。mesh 会加载它们，并在每个子代理上以
+`lib/subagents.js` 提供 `codex-agent`、`codex-explore` 和 `codex-worker`（Codex 内置的
+`default`、`explorer` 与 `worker` 角色）。mesh 会加载它们，并在每个子代理上以
 `config.tools` 白名单挂载本插件。
 
 ## 安装

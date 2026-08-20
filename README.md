@@ -20,8 +20,8 @@ Codex's own plan mode is `update_plan` (it writes `todo/write` events so the pla
 renders through DSH's `todos` projection); there is no DSH `enter_plan_mode` /
 `exit_plan_mode` pair.
 
-`lib/subagents.js` ships `codex-explore` and `codex-worker` (Codex's built-in
-`explorer` and `worker` roles). The mesh loads them and mounts this plugin on each
+`lib/subagents.js` ships `codex-agent`, `codex-explore`, and `codex-worker` (Codex's built-in
+`default`, `explorer`, and `worker` roles). The mesh loads them and mounts this plugin on each
 child with a `config.tools` whitelist.
 
 ## Install

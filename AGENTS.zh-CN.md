@@ -208,7 +208,7 @@ const strDef = (t) => {
 ```
 dsh-kernel-codex/
 ├── lib/index.js        # 插件（单文件 ESM；30 个工具 + 2 个条件计划模式工具）
-├── package.json        # v0.1.2，type:module，MIT，仓库 oppnc/dsh-kernel-codex
+├── package.json        # v1.0.4，type:module，MIT，仓库 oppnc/dsh-kernel-codex
 ├── LICENSE             # MIT，Copyright (c) 2026 oppnc
 ├── README.md           # 简短的人类友好英文 README
 ├── README.zh.md        # README.md 的中文翻译

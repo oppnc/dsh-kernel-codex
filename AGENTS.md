@@ -223,7 +223,7 @@ These lived in `dsh-kernel-mesh` and are **not** open work for this package. Cur
 ```
 dsh-kernel-codex/
 ├── lib/index.js        # the plugin (single-file ESM; 30 tools + 2 conditional plan-mode tools)
-├── package.json        # v0.1.2, type:module, MIT, repo oppnc/dsh-kernel-codex
+├── package.json        # v1.0.4, type:module, MIT, repo oppnc/dsh-kernel-codex
 ├── LICENSE             # MIT, Copyright (c) 2026 oppnc
 ├── README.md           # short human-facing English README
 ├── README.zh.md        # Chinese translation of README.md
