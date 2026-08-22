@@ -26,13 +26,15 @@ child with a `config.tools` whitelist.
 
 ## Install
 
-1. Copy the package into your harness profile:
+1. Install the plugin into your profile with the official plugin command:
 
-   ```
-   ~/.dsh/profiles/node_modules/dsh-kernel-codex
+   ```sh
+   dsh plugin --profile web add github:oppnc/dsh-kernel-codex
    ```
 
-2. Add a row inside the **planning group** of the `codex-kernel` preset (the preset already disables the colliding DSH rows `tool-fs-search` and `tool-web` for you):
+   This package is a plain plugin (no `dsh.bundle` declaration), so `dsh plugin` installs it as an inactive dependency — that is expected: the preset row below references it by name.
+
+2. Install the `codex-kernel` agent preset: copy its directory into `~/.dsh/.agent-presets/codex-kernel/`. The shipped preset already includes the `codex-surface` row; if you author your own preset, add it (the preset also disables the colliding DSH rows `tool-fs-search` and `tool-web`):
 
    ```yaml
    - id: codex-surface
