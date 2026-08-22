@@ -1,6 +1,6 @@
 # Changelog
 
-## 1.0.4
+## 0.1.4
 
 - **Subagent recipes match upstream Codex roles.** `codex-agent` (default),
   `codex-explore`, `codex-worker`; upstream `explorer.toml` is empty and `worker`
@@ -10,7 +10,7 @@
 - **No fabricated default model.** Recipes carry an empty model; the mesh fills
   it from `~/.codex/config.toml`.
 
-## 1.0.3
+## 0.1.3
 
 - **Upstream system prompt.** `lib/system-prompt.js` carries the full Codex prompt
   (`gpt_5_2_prompt.md`; gpt-5.6 models reuse it — there is no gpt-5.6-specific
