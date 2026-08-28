@@ -34,7 +34,14 @@ child with a `config.tools` whitelist.
 
    This package is a plain plugin (no `dsh.bundle` declaration), so `dsh plugin` installs it as an inactive dependency — that is expected: the preset row below references it by name.
 
-2. Install the `codex-kernel` agent preset: copy its directory into `~/.dsh/.agent-presets/codex-kernel/`. The shipped preset already includes the `codex-surface` row; if you author your own preset, add it (the preset also disables the colliding DSH rows `tool-fs-search` and `tool-web`):
+2. The `codex-kernel` agent preset ships in `dsh-kernel-mesh`'s `presets/` directory. Copy it into the official user-preset root (or, if you run without the mesh, get the preset directory from the mesh repo):
+
+     ```sh
+     dsh_home="${DSH_HOME:-$HOME/.dsh}"
+     cp -r "$dsh_home/profiles/web/node_modules/dsh-kernel-mesh/presets/codex-kernel" "$dsh_home/.agent-presets/"
+     ```
+
+     The preset already includes the `codex-surface` row; if you author your own preset, add it (the preset also disables the colliding DSH rows `tool-fs-search` and `tool-web`):
 
    ```yaml
    - id: codex-surface
