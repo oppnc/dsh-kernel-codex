@@ -300,7 +300,9 @@ async function main() {
     'explicit agentOptions (no fabricated default model)',
   )
   ok(typeof started.request.persona === 'string' && started.request.persona.length > 0, 'request.persona set')
-  ok(started.request.toolFilter && Array.isArray(started.request.toolFilter.allow), 'request.toolFilter set')
+  ok(!('toolFilter' in started.request), 'request.toolFilter deliberately unset '
+    + '(dsh-tools 0.1.1-rc.2 restrict() rejects scope-local names; the mesh agent/created '
+    + 'listener applies the child mask)')
   eq(started.request.maxDepth, 3, 'request.maxDepth is 3')
   match(bg, /codex-child-1/, 'background return text contains durable child id')
 
