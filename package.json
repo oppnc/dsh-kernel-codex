@@ -1,6 +1,6 @@
 {
   "name": "dsh-kernel-codex",
-  "version": "0.1.4",
+  "version": "0.1.6",
   "description": "Codex CLI tool surface written in DSH form, distilled from @openai/codex v0.147.0 (tool handlers unchanged from v0.146.0).",
   "type": "module",
   "main": "lib/index.js",
@@ -10,6 +10,7 @@
   },
   "files": [
     "lib/index.js",
+    "lib/ensure-mesh.js",
     "lib/system-prompt.js",
     "lib/subagents.js",
     "LICENSE",
@@ -39,5 +40,8 @@
   "repository": {
     "type": "git",
     "url": "git+https://github.com/oppnc/dsh-kernel-codex.git"
+  },
+  "dependencies": {
+    "dsh-kernel-mesh": "github:oppnc/dsh-kernel-mesh#semver:^0.1.6"
   }
 }

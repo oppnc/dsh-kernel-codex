@@ -24,11 +24,23 @@ if (!tools || !fs) return
 
 Every tool registers through a tolerant `register()` helper and every registration is fire-and-forget inside the plugin's `apply` fiber, so unregistration/lifecycle is owned by Cordis, not by the package.
 
+### Mesh dependency and fallback mount
+
+`dsh-kernel-mesh` is a declared dependency (`github:oppnc/dsh-kernel-mesh#semver:^0.1.6`),
+so installing this package also installs the mesh. The mesh is still expected to be mounted
+ONCE by the host composition (profile bundle) and shared by all vendor packages. As a
+safety net, `apply()` first runs `ensureKernelMesh(ctx, ...)` (`lib/ensure-mesh.js`): if
+the mesh's `kernelMesh` marker service is absent AND no `*-kernel` route is registered,
+the plugin mounts its own copy of the mesh (bare specifier, with a dev-layout sibling
+fallback). A fallback-mounted mesh shares THIS row's lifecycle — its routes disappear
+when the row unloads — so the profile-level mount stays the preferred form and the
+fallback logs a pointer to `dsh plugin add dsh-kernel-mesh`.
+
 ## System prompt (persona)
 
 `lib/system-prompt.js` carries the upstream **Codex CLI** system prompt, rewritten in DSH
 form: tool names and runtime placeholders are adapted to the DSH tool surface, while the
-behavior rules are kept verbatim. (gpt-5.6 models reuse this prompt — the repo has no gpt-5.6-specific file.) Upstream source: https://github.com/openai/codex/blob/main/codex-rs/core/gpt_5_2_prompt.md
+behavior rules are kept verbatim. **Corrected provenance (rust-v0.151.0 re-check):** gpt-5.6 models do NOT reuse this prompt — upstream serves them a distinct template from `codex-rs/models-manager/models.json` (`model_messages.instructions_template`, identical for gpt-5.6-sol/-terra/-luna). The `codex-rs/core/*prompt.md` files are legacy leftovers unreferenced by the runtime prompt path. `lib/system-prompt.js` therefore carries BOTH: `SYSTEM_PROMPT` (gpt-5.2-era, below) and `SYSTEM_PROMPT_GPT56`; `personaForModel(model)` picks the one upstream would serve, driven by the top-level `model` key of `~/.codex/config.toml` (`lib/codex-config.js`). Upstream sources: gpt_5_2_prompt.md and models.json instructions_template (rust-v0.151.0).
 
 `apply()` registers it as the `deployment:persona` section (order `0`) with
 `complete: true`, and calls `systemPrompt.suppressRuntimeContext()`. Together these make
@@ -41,7 +53,15 @@ the second registration throws. The kernel presets ship without that row.
 
 ## Schema provenance
 
-The schemas are **not** hand-written from memory of the Codex CLI. They are distilled from the locally installed `@openai/codex` package, originally **v0.146.0** and re-checked against **v0.147.0** (2026-08-07; npm `latest`) and the `rust-v0.148.0-alpha.20` handler tree. The handler directory is unchanged across those three points — no new model-facing tool names. The npm package for Codex is only a launcher for a compiled Rust binary; the tool surface was recovered from the binary's embedded strings — specifically the `core/src/tools/handlers/*.rs` handler names and their concatenated name/description/parameter blobs (see the original recovery report for line-level evidence).
+The schemas are **not** hand-written from memory of the Codex CLI. They are distilled from the locally installed `@openai/codex` package, originally **v0.146.0**, re-checked against **v0.147.0** (2026-08-07; npm `latest`) and the `rust-v0.148.0-alpha.20` handler tree, and re-checked again against **rust-v0.151.0** (npm `@openai/codex` 0.151.0, 2026-08 sync). Findings of the 0.151.0 re-check:
+
+- The handler directory is unchanged — no new model-facing tool names in the default surface.
+- Upstream **removed `shell_command`** (the plugin never exposed it).
+- Upstream added a **feature-gated `send_user_message_async`** (default off, like grok's `send_subagent_message`); not registered here — the DSH `ask_user_question`-style channel stays the only user-interaction tool.
+- **`assign_agent_task` has no upstream counterpart** — it is a DSH-form convenience over `subagents.followup`, kept for the multi-agent family UX.
+- v1 `spawn_agent`'s upstream description changed by one line only; the schema is stable.
+- Upstream gpt-5.6 defaults are effort `low` / reasoning summary `none`; the mesh codex adapter deliberately keeps `defaultEffort: 'high'` and `summary: 'concise'` (DSH surfaces reasoning summaries in the UI, and `high` matches the kernel's quality bar) — a documented divergence, not an oversight.
+- `ReasoningEffort` upstream is now `none/minimal/low/medium/high/xhigh/max/ultra/persistent`; the mesh codex route still advertises only `none`/`high` for its custom-provider route. The npm package for Codex is only a launcher for a compiled Rust binary; the tool surface was recovered from the binary's embedded strings — specifically the `core/src/tools/handlers/*.rs` handler names and their concatenated name/description/parameter blobs (see the original recovery report for line-level evidence).
 
 The installed Codex version has evolved past the older tool names (`shell`, `view`, `write`, `edit`, `task`, `todo`, `enter_plan_mode`, `exit_plan_mode`, `skill`). The modern surface is:
 
@@ -143,7 +163,7 @@ Codex models plan mode as `update_plan` (a TODO/checklist rendered to the user),
 - **Background is the default** (`run_in_background !== false` → `subagents.startContinuable`). The call returns a durable child id at inbox acceptance. The runtime delivers the settlement notice (outcome + final assistant message) itself.
 - **`run_in_background` is a DSH-form addition** to the Codex CLI schema (default `true`) so the model can opt into a one-shot wait. The rest of the parameter names (`task_name`, `message`, `agent_type`, `model`, `reasoning_effort`, `fork_turns`) stay Codex-surface-identical. `reasoning_effort` and `fork_turns` are accepted for schema parity and are not mapped onto the child request; the child is always a fresh conversation.
 - **`agent_type` maps onto the upstream Codex roles** (`codex-rs/core/src/agent/role.rs`): `explorer` → `codex-explore`, `worker` → `codex-worker`, omit/other → `codex-agent` (the `default` role). Upstream `explorer.toml` is empty and `worker` has no config file, so **no role changes the child's prompt or tools** — every role runs on the full Codex base prompt with the full toolset. The role descriptions only guide the parent's choice and live in the `agent_type` parameter description.
-- **Every request sets `agentOptions` / `persona` / `toolFilter` / `maxDepth: 3` explicitly**, because the continuable route never calls `provider.start()` (mesh AGENTS.md §3.2). `agentOptions` is `{ provider: recipe.provider, model: args.model || recipe.model }`; `persona` and `toolFilter` come from `lib/subagents.js` (the single source of truth shared with the mesh).
+- **Every request sets `agentOptions` / `persona` / `maxDepth: 3` explicitly**, because the continuable route never calls `provider.start()` (mesh AGENTS.md §3.2). `agentOptions` is `{ provider: recipe.provider, model: args.model || recipe.model }`; `persona` comes from `lib/subagents.js` (the single source of truth shared with the mesh). `toolFilter` is deliberately NOT set on the request: since dsh-tools 0.1.1-rc.2, `tools.restrict()` accepts only GLOBAL tool names and rejects scope-local (vendor) names — the mesh `agent/created` listener applies the child tool mask instead (mesh AGENTS.md §6).
 - **Provider preference** is the recipe name (`codex-agent` / `codex-explore` / `codex-worker`) when listed, then `codex-agent`, then `spawn`.
 - **Foreground** (`run_in_background: false`) awaits `subagents.start` and, on a non-`completed` stop, appends `"Partial output before the run ended:"` plus the child's text — the native wording (`stopReasonError` + `withPartialText`).
 - The tool declares **`isConcurrencySafe: () => true`** and registers a **`systemPrompt` section** (`tool:spawn_agent`, order `116.5`) that teaches the background-first convention while the tool is visible.
@@ -214,7 +234,7 @@ These lived in `dsh-kernel-mesh` and are **not** open work for this package. Cur
 
 - **Syntax/validation:** `node --check lib/index.js` — the plugin is plain ESM JavaScript with no build step, so this is the first and cheapest check.
 - **Registration smoke test:** mount the package in a preset with colliding DSH rows enabled, then disabled, and confirm the tolerant `register()` logic produce the expected tool set (no "already registered" exceptions; 27 static tools when the three native control names already won, or 30 when they did not).
-- **`spawn_agent` smoke test:** `/tmp/kernel-surfaces-smoke-codex.js` (same mock-ctx pattern as the kimi/grok suite). It asserts the plugin loads; background default → `startContinuable` with explicit `agentOptions`/`persona`/`toolFilter`/`maxDepth: 3` and a durable-id return; `followup_task` / `send_message` / `resume_agent` → `subagents.followup`; foreground partial-output wording (`Partial output before the run ended:`); `isConcurrencySafe`; and the `tool:spawn_agent` systemPrompt section.
+- **`spawn_agent` smoke test:** `/tmp/kernel-surfaces-smoke-codex.js` (same mock-ctx pattern as the kimi/grok suite). It asserts the plugin loads; background default → `startContinuable` with explicit `agentOptions`/`persona`/`maxDepth: 3` (and deliberately NO `toolFilter` — the mesh `agent/created` listener applies the child mask) and a durable-id return; `followup_task` / `send_message` / `resume_agent` → `subagents.followup`; foreground partial-output wording (`Partial output before the run ended:`); `isConcurrencySafe`; and the `tool:spawn_agent` systemPrompt section.
 - **Functional checks:** exercise the tools through the `codex-kernel` preset — `exec_command` (foreground timeout and background + `task_stop`), `apply_patch` (add/update/delete/move hunks and matching-failure paths), `glob`/`grep` (skip-dir and 512 KiB cap behavior), `view_file`/`write_file`/`edit_file` (sandbox-policy writes), `request_user_input`, `spawn_agent` (background default, follow-up, and `run_in_background: false`), and `view_image` on a real PNG/JPEG.
 - **Edge cases to re-verify after any edit:** the 3-second/300-second timeout clamp in `exec_command`, the anchor-location fallback in `applyUpdateHunk` (no `@@` context), and `cwdOf`'s three-level fallback.
 
@@ -223,7 +243,10 @@ These lived in `dsh-kernel-mesh` and are **not** open work for this package. Cur
 ```
 dsh-kernel-codex/
 ├── lib/index.js        # the plugin (single-file ESM; 30 tools + 2 conditional plan-mode tools)
-├── package.json        # v0.1.4, type:module, MIT, repo oppnc/dsh-kernel-codex
+├── lib/system-prompt.js# SYSTEM_PROMPT (gpt-5.2-era) + SYSTEM_PROMPT_GPT56 + personaForModel
+├── lib/subagents.js    # L2 recipes (codex-agent/-explore/-worker)
+├── lib/codex-config.js # reads the top-level `model` key of ~/.codex/config.toml
+├── package.json        # v0.1.5, type:module, MIT, repo oppnc/dsh-kernel-codex
 ├── LICENSE             # MIT, Copyright (c) 2026 oppnc
 ├── README.md           # short human-facing English README
 ├── README.zh.md        # Chinese translation of README.md
